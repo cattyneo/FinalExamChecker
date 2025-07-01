@@ -1,8 +1,40 @@
 {
   "manifest_version": 3,
-  "name": "FinalExamChecker",
-  "version": "1.19",
-  "permissions": [ "debugger", "tabs" ],
+  "name": "Final Exam Checker",
+  "version": "1.0.0",
+  "description": "Webサイト制作課題「Kira-Kira English」を検証するChrome拡張ツール。DevTools統合・自動検証・W3Cバリデータ連携。",
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
   "devtools_page": "devtools.html",
-  "action": {}
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "https://validator.w3.org/*",
+    "https://jigsaw.w3.org/*",
+    "https://api.github.com/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "js/*",
+        "css/*",
+        "html2canvas.min.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "action": {
+    "default_title": "Final Exam Checker"
+  }
 }
