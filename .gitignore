@@ -1,0 +1,18 @@
+# Node/Chrome拡張開発用
+node_modules/
+dist/
+.DS_Store
+.env
+*.log
+
+# VSCode/IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+
+# Cursor設定ファイル
+.cursor/
+!.cursor/rules/
+!.cursor/rules/*
