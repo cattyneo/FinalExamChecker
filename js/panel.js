@@ -11,9 +11,14 @@ let checkElementsPropertiesMessage;
 let MODEL_DATA;
 let METRICS;
 
-chrome.debugger.onDetach.addListener(() => {
-  attached = false;
-});
+// chrome.debugger APIが利用可能かチェック
+if (chrome.debugger && chrome.debugger.onDetach) {
+  chrome.debugger.onDetach.addListener(() => {
+    attached = false;
+  });
+} else {
+  console.error("chrome.debugger API が利用できません。manifest.jsonの権限設定を確認してください。");
+}
 
 async function dbggr(command, option) {
   if (!attached) {
@@ -27,9 +32,9 @@ async function dbggr(command, option) {
   }
 }
 
-function makeHash(text){
-  const uint8  = new TextEncoder().encode(text)
-  return Array.from(new Uint8Array(uint8)).map(v => v.toString(16).padStart(2, '0')).join('').slice(0,8);
+function makeHash(text) {
+  const uint8 = new TextEncoder().encode(text)
+  return Array.from(new Uint8Array(uint8)).map(v => v.toString(16).padStart(2, '0')).join('').slice(0, 8);
 }
 
 function version2num(ver) {
@@ -71,7 +76,7 @@ const PANEL = {
       if (type == 'title') {
         const hash = makeHash(str);
         div.id = hash;
-        div.addEventListener('click', () =>window.scrollTo(0,0));
+        div.addEventListener('click', () => window.scrollTo(0, 0));
       }
     }
     this.element.append(div);
@@ -187,7 +192,7 @@ function getFirstFontName(fontFamily) {
 function wait(t) {
   return new Promise((f) => {
     setTimeout(f, t);
-  }, () => {});
+  }, () => { });
 }
 
 function rgb2hex(rgb) {
@@ -269,31 +274,47 @@ async function startDebugger() {
   debuggee = { tabId: chrome.devtools.inspectedWindow.tabId };
 
   try {
+    console.log("デバッガーのアタッチを試行中...", debuggee);
     await chrome.debugger.attach(debuggee, "1.3");
+    console.log("デバッガーのアタッチに成功しました");
 
   } catch (e) {
+    console.error("デバッガーのアタッチでエラーが発生しました:", e);
     PANEL.add(
       "Debuggerを開始できません。\n一度リロードし、デベロッパーツールを再表示してください。",
       "error",
     );
+    PANEL.add("エラー詳細: " + e.message, "error");
     return false;
   }
   attached = true;
 
-  await dbggr("DOM.enable");
-  await dbggr("CSS.enable");
-  await dbggr("Page.enable");
-  await dbggr("Overlay.enable");
+  try {
+    console.log("デバッガー機能を有効化中...");
+    await dbggr("DOM.enable");
+    await dbggr("CSS.enable");
+    await dbggr("Page.enable");
+    await dbggr("Overlay.enable");
+    console.log("デバッガー機能の有効化が完了しました");
 
-  const { root } = await dbggr("DOM.getDocument", { depth: -1 });
-  ROOT = root;
-  ROOT_BODY = root.children[1].children[1];
+    console.log("DOMを取得中...");
+    const { root } = await dbggr("DOM.getDocument", { depth: -1 });
+    ROOT = root;
+    ROOT_BODY = root.children[1].children[1];
+    console.log("DOM取得が完了しました", ROOT_BODY);
 
-  // metricsを取得する
-  METRICS = await dbggr("Page.getLayoutMetrics");
+    console.log("レイアウトメトリクスを取得中...");
+    METRICS = await dbggr("Page.getLayoutMetrics");
+    console.log("レイアウトメトリクス取得が完了しました", METRICS);
+  } catch (e) {
+    console.error("デバッガー機能の初期化でエラーが発生しました:", e);
+    PANEL.add("デバッガー機能の初期化に失敗しました。", "error");
+    PANEL.add("エラー詳細: " + e.message, "error");
+    return false;
+  }
 
   if (METRICS.contentSize.width != 1536 && METRICS.contentSize.width != 390) {
-    PANEL.add("ウィンドウサイズは390pxか1536pxにしてください。（検出サイズ：" + METRICS.contentSize.width +"）", "error");
+    PANEL.add("ウィンドウサイズは390pxか1536pxにしてください。（検出サイズ：" + METRICS.contentSize.width + "）", "error");
     return false;
   }
   if (METRICS.contentSize.width == 1536) {
@@ -375,7 +396,7 @@ async function DEBUG_SCRIPT() {
       }
       // console.log(node.nodeId, parentNode,node.nodeValue, property);
       const nodeValue = node.nodeValue.trim();
-      results.push({ nodeId: node.nodeId, nodeValue, box, property});
+      results.push({ nodeId: node.nodeId, nodeValue, box, property });
     }
     if (node.childNodeCount) {
       for (let i = 0; i < node.childNodeCount; i++) {
@@ -423,7 +444,7 @@ async function DEBUG_SCRIPT() {
           }
           resolve();
         }
-      );  
+      );
     });
   })();
 
@@ -471,7 +492,7 @@ async function DEBUG_SCRIPT() {
           emphasises.push(7);
           elementMessages += 'Webフォントではありません<br>';
         }
-        if ( emphasises.length > 0 ) {
+        if (emphasises.length > 0) {
           // 要素のキャプチャを取得
           const captureParam = {
             "format": "png", "quality": 100, "fromSurface": true, "captureBeyondViewport": true,
@@ -517,7 +538,7 @@ async function DEBUG_SCRIPT() {
           datum.nodeValue, rgb2hex(datum.property.color), datum.property.fontSize, datum.property.fontWeight,
           datum.property.fontStyle, datum.property.fontFamily, "",
         ],
-        [ '要素が取得できません。打ち間違いをチェックしてください。', '', '', '', '', '', '', ],
+        ['要素が取得できません。打ち間違いをチェックしてください。', '', '', '', '', '', '',],
         []
       );
     }
@@ -703,14 +724,21 @@ document.getElementById("notice-close").addEventListener("click", (e) => {
 document.getElementById("checker").addEventListener("click", async (e) => {
   e.preventDefault();
 
+  console.log("チェックボタンがクリックされました");
+  PANEL.add("チェック処理を開始します...", "info");
+
   document.getElementById("messages").innerHTML = '';
 
   // デバッガを開始
+  console.log("デバッガーを開始しています...");
   if (!(await startDebugger())) {
     // 条件に適合しなければ終了
+    console.log("デバッガーの開始に失敗しました");
     await chrome.debugger.detach(debuggee);
     return false;
   }
+
+  console.log("デバッガーが正常に開始されました");
 
   await initDebug();
   if (METRICS.contentSize.width == 1536) {
@@ -738,7 +766,7 @@ document.getElementById("checker").addEventListener("click", async (e) => {
   catch (e) {
     PANEL.add('htmlが取得できませんでした。ソースを取得して設定してください。', 'error');
   }
-  
+
   // style.cssの取得
   const cssFile = frameTree.resources.find((r) => r.url.match(/\/style.css/));
   if (!cssFile) {
@@ -799,6 +827,15 @@ document.getElementById("checker").addEventListener("click", async (e) => {
 });
 
 (async () => {
+  // APIの利用可能性をチェック
+  if (!chrome.debugger) {
+    PANEL.add("chrome.debugger API が利用できません。", "error");
+    PANEL.add("拡張機能を再読み込みしてください。", "error");
+    return;
+  }
+
+  PANEL.add("chrome.debugger API は利用可能です。", "info");
+
   if (await checkAppVersion()) {
     PANEL.add("新しいバージョンがあります。", "error");
   }
@@ -807,4 +844,4 @@ document.getElementById("checker").addEventListener("click", async (e) => {
   }
 })();
 
-chrome.devtools.inspectedWindow.reload();
+// chrome.devtools.inspectedWindow.reload();
