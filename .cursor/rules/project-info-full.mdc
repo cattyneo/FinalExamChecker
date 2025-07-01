@@ -1,0 +1,147 @@
+# Final Exam Checker - 詳細プロジェクト概要
+
+## プロジェクト概要
+
+Final Exam Checkerは、学生のWebサイト制作最終課題をチェックするためのChrome拡張機能です。「Kira-Kira English」というオンライン英会話教室のWebサイト制作課題を対象としており、HTML/CSS/JavaScriptの品質と模範解答との一致度を検証します。
+
+## アーキテクチャ
+
+### Chrome拡張機能の構造
+- **manifest.json**: Chrome拡張機能の設定ファイル（v3）
+- **devtools.html/devtools.js**: DevToolsパネルの作成
+- **panel.html/panel.js**: メインのチェック機能インターフェース
+- **checker.html/checker.js**: 結果表示用の独立ページ
+
+### コア機能
+
+#### 1. DevTools統合
+- Chrome Debugger APIを使用してページの詳細検査を実行
+- デバイス幅1536px（PC）と390px（SP）の両方に対応
+- DOM要素の取得、スタイル情報の抽出、スクリーンショット機能
+
+#### 2. HTML検証システム
+- W3C HTML Validatorとの連携による構文エラー検証
+- 必須構造要素（header, nav, main, section, footer）の存在確認
+- 見出しタグ（h1-h6）の階層構造の適切性チェック
+- meta description、titleタグの完全一致検証
+- alt属性、id属性、リンクの適切な設定確認
+- 不適切なbr要素の使用検出
+
+#### 3. CSS検証システム
+- W3C CSS Validatorとの連携による構文エラー検証
+- CSSプロパティの使用状況確認（hover, position, transform, ネガティブマージン）
+
+#### 4. Googleフォント検証
+- Noto Sans JP（400,700または100..900）の正しい読み込み確認
+- Poppins（通常700,800、斜体700,800）の正しい読み込み確認
+- ローカルフォントとWebフォントの判別
+
+#### 5. テキスト要素精密比較システム
+- **模範データ**: `model_data_pc.js`と`model_data_sp.js`に格納された正解データ
+- **比較項目**: 文字色、フォントサイズ、フォント太さ、フォントスタイル、フォントファミリー
+- **位置判定**: DOM要素の座標と模範データの座標の重複面積計算
+- **視覚的フィードバック**: 差異がある要素のスクリーンショット生成
+
+#### 6. 要素プロパティ検証（PC版限定）
+- **対象プロパティ**: background-color, border-width, border-color, border-radius, width, height
+- **検証箇所**: `element_properties_pc.js`で定義された特定座標の要素
+- **座標ベース検証**: x, y座標で要素を特定して詳細プロパティを検証
+
+#### 7. jQueryプラグイン検証
+- slickスライダーのautoplayオプション設定確認
+
+### データ構造
+
+#### 模範データの構造
+```javascript
+{
+  "nodeValue": "表示テキスト",
+  "box": [左上x, 左上y, 右下x, 右下y],
+  "property": {
+    "color": "rgb(r, g, b)",
+    "fontSize": "数値px",
+    "fontWeight": "数値",
+    "fontStyle": "normal|italic",
+    "fontFamily": "フォント名"
+  }
+}
+```
+
+#### 要素プロパティ検証データの構造
+```javascript
+{
+  name: "要素名",
+  x: x座標, y: y座標,
+  properties: [
+    { type: "プロパティ名", value: "期待値", orValue: "代替値（オプション）" }
+  ]
+}
+```
+
+### ユーザーインターフェース
+
+#### DevToolsパネル（panel.html）
+- チェック実行ボタン
+- リアルタイムログ表示
+- 要素のホバーハイライト機能
+- バージョンアップ通知
+
+#### 結果表示ページ（checker.html）
+- ソースコードチェック結果（HTML/CSS/JS）
+- 要素プロパティチェック結果
+- 文字要素チェック一覧表示
+- 文字要素チェック詳細表示（スクリーンショット付き）
+- PNG画像ダウンロード機能
+- ダブルクリックによる行削除機能
+
+### 検証フロー
+
+1. **初期設定**: デバッガー接続、DOM取得、メトリクス取得
+2. **ページ状態設定**: 特定のアコーディオン開閉、スライダー停止、スクロール位置調整
+3. **フォント検証**: 適用フォントの種類確認
+4. **slick検証**: autoplayオプションの確認
+5. **テキスト要素走査**: DOM全体からテキスト要素を抽出し模範データと比較
+6. **要素プロパティ検証**: 座標ベースで特定要素のスタイルプロパティを検証
+7. **結果集約**: 新しいタブで包括的な結果を表示
+
+### バージョン管理
+
+- GitHubのmanifest.jsonから最新バージョンを取得
+- セマンティックバージョニングによる更新判定
+- ユーザーへの更新通知機能
+
+### 技術的な特徴
+
+- Chrome Debugger APIの活用による高精度な要素検査
+- 座標ベースの要素特定による確実な検証
+- 外部バリデーターとの連携による標準準拠チェック
+- html2canvasライブラリによるスクリーンショット機能
+- 模範データとの詳細比較による学習支援
+
+### 対象課題
+
+「Kira-Kira English」オンライン英会話教室のレスポンシブWebサイト制作課題
+- PC版（1536px幅）とスマートフォン版（390px幅）の両対応
+- 特定のデザインカンプとの完全一致を目標とした課題
+
+### ファイル構成
+
+```
+FinalExamChecker/
+├── manifest.json              # Chrome拡張機能設定
+├── devtools.html/js           # DevToolsパネル作成
+├── panel.html/js              # メインチェック機能
+├── checker.html/js            # 結果表示ページ
+├── css/                       # スタイルシート
+│   ├── checker.css
+│   └── panel.css
+└── js/                        # JavaScript
+    ├── model_data_pc.js       # PC版模範データ
+    ├── model_data_sp.js       # SP版模範データ
+    ├── element_properties_pc.js # 要素プロパティ検証データ
+    ├── highlight_config.js    # ハイライト設定
+    ├── html2canvas.min.js     # スクリーンショットライブラリ
+    └── model.js              # 模範データ生成（開発用）
+```
+
+このツールは、Web制作学習における品質管理と学習支援を目的として設計されており、学生が制作したWebサイトの精度を客観的に評価することができます。

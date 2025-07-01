@@ -1,0 +1,61 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Final Exam Checker - AI用プロジェクト概要
+
+## 概要
+Chrome拡張機能：Webサイト制作課題「Kira-Kira English」を検証するツール
+
+## 技術構成
+- **Chrome拡張v3**: DevTools統合、Debugger API使用
+- **対応デバイス**: PC(1536px) / SP(390px)
+- **外部連携**: W3C HTML/CSS Validator、GitHub API
+
+## コアファイル
+- `manifest.json`: 拡張機能設定
+- `devtools.js` → `panel.js`: メイン検証ロジック
+- `checker.js`: 結果表示
+- `model_data_pc.js`/`model_data_sp.js`: 模範データ（座標・スタイル情報）
+- `element_properties_pc.js`: 要素プロパティ検証データ
+
+## 主要機能
+1. **HTML/CSS/JS構文チェック** - W3Cバリデーター連携
+2. **テキスト要素精密比較** - 座標ベース位置判定、スタイルプロパティ検証
+3. **Googleフォント検証** - Noto Sans JP / Poppins 読み込み確認
+4. **要素プロパティ検証** - 背景色、境界、サイズの座標ベースチェック
+5. **スクリーンショット生成** - html2canvas使用
+
+## データ構造
+```javascript
+// 模範データ構造
+{
+  "nodeValue": "テキスト",
+  "box": [左上x, 左上y, 右下x, 右下y],
+  "property": {
+    "color": "rgb(r,g,b)", "fontSize": "数値px",
+    "fontWeight": "数値", "fontStyle": "normal|italic"
+  }
+}
+
+// 要素プロパティ検証
+{
+  name: "要素名", x: x座標, y: y座標,
+  properties: [{ type: "プロパティ名", value: "期待値" }]
+}
+```
+
+## 検証フロー
+1. デバッガー接続 → DOM/メトリクス取得
+2. ページ状態調整（アコーディオン、スライダー等）
+3. フォント・slick検証
+4. テキスト要素走査・比較
+5. 座標ベース要素プロパティ検証
+6. 結果表示（新タブ）
+
+## 開発時の注意点
+- Chrome Debugger APIの非同期処理
+- 座標ベース要素特定の精度
+- 模範データとの完全一致判定
+- デバイス幅切り替え時の再描画タイミング
