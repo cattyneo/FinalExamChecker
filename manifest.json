@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Final Exam Checker",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "Webサイト制作課題「Kira-Kira English」を検証するChrome拡張ツール。DevTools統合・自動検証・W3Cバリデータ連携。",
   "devtools_page": "devtools.html",
   "permissions": [

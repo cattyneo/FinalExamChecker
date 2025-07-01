@@ -164,9 +164,9 @@ const HIGHLIGHTCONFIG = {
   },
   "borderColor": {
     "r": 255,
-    "g": 229,
-    "b": 153,
-    "a": 0.66,
+    "g": 0,
+    "b": 102,
+    "a": 0.9,
   },
   "marginColor": {
     "r": 246,
