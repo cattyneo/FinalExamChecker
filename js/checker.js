@@ -402,43 +402,213 @@
     });    
   });
 
-  document.querySelector('#messages .tables').addEventListener('dblclick', async (e) => {
-    let element = e.target;
-    while (element && !element.classList.contains('table')) {
-      element = element.parentElement;
+  // アンドゥ機能とインタラクティブ要素管理
+  const UndoManager = {
+    history: [],
+    maxHistorySize: 50,
+    
+    pushState(element, action, parent = null, nextSibling = null) {
+      this.history.push({
+        element: element.cloneNode(true),
+        action,
+        parent: parent || element.parentElement,
+        nextSibling: nextSibling || element.nextElementSibling,
+        timestamp: Date.now()
+      });
+      
+      if (this.history.length > this.maxHistorySize) {
+        this.history.shift();
+      }
+    },
+    
+    undo() {
+      if (this.history.length === 0) {
+        showToast('元に戻せる操作がありません', 'info');
+        return false;
+      }
+      
+      const lastState = this.history.pop();
+      if (lastState.action === 'delete') {
+        if (lastState.nextSibling) {
+          lastState.parent.insertBefore(lastState.element, lastState.nextSibling);
+        } else {
+          lastState.parent.appendChild(lastState.element);
+        }
+        showToast('削除を元に戻しました', 'info');
+        
+        // 復元した要素にイベントリスナーを再追加
+        addEventListenersToElement(lastState.element);
+        return true;
+      }
+      return false;
     }
-    if (element) {
+  };
+
+  // トーストメッセージ表示
+  function showToast(message, type = 'success') {
+    const toastContainer = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    
+    toastContainer.appendChild(toast);
+    
+    // アニメーション開始
+    setTimeout(() => {
+      toast.classList.add('show');
+    }, 10);
+    
+    // 3秒後に削除
+    setTimeout(() => {
+      toast.classList.remove('show');
       setTimeout(() => {
-        element.style = 'background-color: rgba(255,0,0,0.5)';
-        setTimeout(() => {
-          if (confirm(`削除します。\nよろしいですか？`)) {
-            element.remove();
+        if (toast.parentElement) {
+          toast.parentElement.removeChild(toast);
+        }
+      }, 300);
+    }, 3000);
+  }
+
+  // 削除アニメーション
+  function deleteElementWithAnimation(element, actionType = '要素') {
+    if (element.classList.contains('deleting')) {
+      return; // 既に削除中の場合は何もしない
+    }
+    
+    // アンドゥ用の状態を保存
+    UndoManager.pushState(element, 'delete');
+    
+    element.classList.add('deleting');
+    
+    setTimeout(() => {
+      if (element.parentElement) {
+        element.remove();
+        showToast(`${actionType}を削除しました`);
+      }
+    }, 500);
+  }
+
+  // 連続削除防止
+  let lastDeleteTime = 0;
+  const DELETE_COOLDOWN = 700; // 700ms
+
+  function canDelete() {
+    const now = Date.now();
+    if (now - lastDeleteTime < DELETE_COOLDOWN) {
+      showToast('削除操作が早すぎます。少し待ってから再度お試しください。', 'error');
+      return false;
+    }
+    lastDeleteTime = now;
+    return true;
+  }
+
+  // 要素にイベントリスナーを追加
+  function addEventListenersToElement(element) {
+    // .table要素の場合
+    if (element.classList.contains('table')) {
+      // ダブルクリックイベント
+      element.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        if (canDelete()) {
+          deleteElementWithAnimation(element, 'テーブル行');
+        }
+      });
+      
+      // .col要素のクリックイベント
+      const cols = element.querySelectorAll('.col');
+      cols.forEach(col => {
+        col.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (canDelete()) {
+            deleteElementWithAnimation(col, 'カラム');
           }
-          else {
-            element.style = '';
-          }    
-        }, 100)
-      }, 0);
+        });
+      });
+    }
+    
+    // .datum要素の場合
+    if (element.classList.contains('datum')) {
+      // ダブルクリックイベント
+      element.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        if (canDelete()) {
+          deleteElementWithAnimation(element, '詳細ブロック');
+        }
+      });
+      
+      // 子要素のクリックイベント
+      const children = element.children;
+      Array.from(children).forEach(child => {
+        child.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (canDelete()) {
+            deleteElementWithAnimation(child, '詳細要素');
+          }
+        });
+      });
+    }
+  }
+
+  // 既存の要素にイベントリスナーを追加
+  function initializeInteractiveElements() {
+    // .table要素
+    document.querySelectorAll('#messages .table').forEach(table => {
+      addEventListenersToElement(table);
+    });
+    
+    // .datum要素
+    document.querySelectorAll('#messages .datum').forEach(datum => {
+      addEventListenersToElement(datum);
+    });
+  }
+
+  // MutationObserver で動的に追加される要素を監視
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          if (node.classList.contains('table') || node.classList.contains('datum')) {
+            addEventListenersToElement(node);
+          }
+          
+          // 子要素も確認
+          const tables = node.querySelectorAll && node.querySelectorAll('.table');
+          const data = node.querySelectorAll && node.querySelectorAll('.datum');
+          
+          if (tables) {
+            tables.forEach(table => addEventListenersToElement(table));
+          }
+          if (data) {
+            data.forEach(datum => addEventListenersToElement(datum));
+          }
+        }
+      });
+    });
+  });
+
+  // 監視開始
+  observer.observe(document.getElementById('messages'), {
+    childList: true,
+    subtree: true
+  });
+
+  // キーボードショートカット（Command/Ctrl + Z）
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      UndoManager.undo();
     }
   });
 
-  document.querySelector('#messages .details').addEventListener('dblclick', (e) => {
-    let element = e.target;
-    while (element && !element.classList.contains('datum')) {
-      element = element.parentElement;
-    }
-    if (element) {
-      setTimeout(() => {
-        element.style = 'background-color: rgba(255,0,0,0.5)';
-        setTimeout(() => {
-          if (confirm(`削除します。\nよろしいですか？`)) {
-            element.remove();
-          }
-          else {
-            element.style = '';
-          }    
-        }, 100)
-      }, 0);
-    }
+  // 初期化
+  document.addEventListener('DOMContentLoaded', () => {
+    initializeInteractiveElements();
   });
+
+  // 既存の要素も初期化（DOMContentLoadedが既に発火している場合）
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeInteractiveElements);
+  } else {
+    initializeInteractiveElements();
+  }
 })();
